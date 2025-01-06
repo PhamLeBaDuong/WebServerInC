@@ -15,7 +15,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <ws2tcpip.h>
-#include <regex.h>
 
 #define PORT 9909
 #define BUFFER_SIZE 104857600
@@ -178,10 +177,17 @@ void *handle_client(void *arg) {
 }
 
 int main(int argc, char *argv[]) {
+    //Initialize the WSA variables
+    WSADATA ws;
+    if(WSAStartup(MAKEWORD(2,2), &ws) < 0) {
+        perror("WSAStartup failed");
+        exit(EXIT_FAILURE);
+    }
+    
     int server_fd;
     struct sockaddr_in server_addr;
 
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         perror("Socket failed");
         exit(EXIT_FAILURE);
     }
