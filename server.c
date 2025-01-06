@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,12 +15,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <ws2tcpip.h>
+#include <regex.h>
 
-#define PORT 8080
+#define PORT 9909
 #define BUFFER_SIZE 104857600
 
+fd_set fr,fw,fe;
+
 const char *get_file_extension(const char *file_name) {
-    const char *dot = strrcchr(file_name, '.');
+    const char *dot = strrchr(file_name, '.');
     if (!dot || dot == file_name) {
         return "";
     }
@@ -133,31 +135,42 @@ void *handle_client(void *arg) {
     int client_fd = *((int *)arg);
     char *buffer = (char *)malloc(BUFFER_SIZE * sizeof(char));
 
+    // receive request data from client and store into buffer
     ssize_t bytes_received = recv(client_fd, buffer, BUFFER_SIZE, 0);
     if (bytes_received > 0) {
+        // Check if request starts with "GET /"
+        if (strncmp(buffer, "GET /", 5) == 0) {
+            // Find the end of the URL (space before HTTP/1)
+            char *space_pos = strchr(buffer + 5, ' ');
+            if (space_pos && strncmp(space_pos + 1, "HTTP/1", 6) == 0) {
+                // Extract filename from request
+                size_t url_length = space_pos - (buffer + 5);
+                char *url_encoded_file_name = malloc(url_length + 1);
+                strncpy(url_encoded_file_name, buffer + 5, url_length);
+                url_encoded_file_name[url_length] = '\0';
 
-        regex_t regex;
-        regcomp(&regex, "^GET /([^ ]*) HTTP/1", REG_EXTENDED);
-        regmatch_t matches[2];
+                // Decode URL
+                char *file_name = url_decode(url_encoded_file_name);
+                free(url_encoded_file_name);
 
-        if (regexec(&regex, buffer, 2, matches, 0) == 0) {
-            buffer[matches[1].rm_eo] = '\0';
-            const char *url_encoded_file_name = buffer + matches[1].rm_so;
-            char *file_name = url_decode(url_encoded_file_name);
+                // Get file extension
+                char file_ext[32];
+                strcpy(file_ext, get_file_extension(file_name));
 
-            char file_ext[32];
-            strcpy(file_ext, get_file_extension(file_name));
+                // Build HTTP response
+                char *response = (char *)malloc(BUFFER_SIZE * 2 * sizeof(char));
+                size_t response_len;
+                build_http_response(file_name, file_ext, response, &response_len);
 
-            char *response = (char *)malloc(BUFFER_SIZE * 2 * sizeof(char));
-            size_t response_len;
-            build_http_response(file_name, file_ext, response, &response_len);
+                // Send HTTP response to client
+                send(client_fd, response, response_len, 0);
 
-            send(client_fd, response, response_len, 0);
-            free(response);
-            free(file_name);
+                free(response);
+                free(file_name);
+            }
         }
-        regfree(&regex);
     }
+
     close(client_fd);
     free(arg);
     free(buffer);
