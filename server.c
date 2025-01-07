@@ -168,6 +168,15 @@ void *handle_client(void *arg) {
                 free(file_name);
             }
         }
+        else if(strncmp(buffer, "POST /",6) == 0) {
+            
+        }
+        else if(strncmp(buffer, "PUT /",5) == 0) {
+
+        }
+        else if(strncmp(buffer, "DELETE /",8) == 0) {
+
+        }
     }
 
     close(client_fd);
