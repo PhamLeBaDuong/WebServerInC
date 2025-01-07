@@ -15,11 +15,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <ws2tcpip.h>
+#include "squeue.h"
 
 #define PORT 9909
 #define BUFFER_SIZE 104857600
+#define THREAD_POOL_SIZE 20
 
-fd_set fr,fw,fe;
+pthread_t thread_pool [THREAD_POOL_SIZE];
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condition_var = PTHREAD_COND_INITIALIZER;
 
 const char *get_file_extension(const char *file_name) {
     const char *dot = strrchr(file_name, '.');
@@ -185,6 +189,23 @@ void *handle_client(void *arg) {
     return NULL;
 }
 
+void *thread_function(void *arg) {
+    while (true) {
+        int *pclient_fd;
+
+        pthread_mutex_lock(&mutex);
+        if((pclient_fd = dequeue()) == NULL) {
+            pthread_cond_wait(&condition_var, &mutex);
+            pclient_fd = dequeue();
+        }
+        pthread_mutex_unlock(&mutex);
+        
+        if(pclient_fd != NULL) {
+           handle_client(*pclient_fd);
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     //Initialize the WSA variables
     WSADATA ws;
@@ -199,6 +220,10 @@ int main(int argc, char *argv[]) {
     if ((server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         perror("Socket failed");
         exit(EXIT_FAILURE);
+    }
+
+    for(int i = 0; i < THREAD_POOL_SIZE; i++) {
+        pthread_create(&thread_pool[i], NULL, thread_function, NULL);
     }
 
     server_addr.sin_family = AF_INET;
@@ -226,9 +251,15 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
 
-        pthread_t thread_id;
-        pthread_create(&thread_id, NULL, handle_client, (void*)client_fd);
-        pthread_detach(thread_id);
+        //make sure only one thread messes with the queue at a time
+        pthread_mutex_lock(&mutex);
+        enqueue(client_fd);
+        pthread_cond_signal(&condition_var);
+        pthread_mutex_unlock(&mutex);
+
+        // pthread_t thread_id;
+        // pthread_create(&thread_id, NULL, handle_client, (void*)client_fd);
+        // pthread_detach(thread_id);
     }
 
     close(server_fd);
