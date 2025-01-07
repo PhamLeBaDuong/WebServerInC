@@ -1,0 +1,2 @@
+This is a test text file for your C web server.
+If you can see this content, your server is successfully serving text files.
