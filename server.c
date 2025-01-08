@@ -105,12 +105,12 @@ void build_http_response(const char *file_name, const char *file_ext, char *resp
     //Build Header
     const char *mime_type = get_mime_type(file_ext);
     char *header = (char *)malloc(BUFFER_SIZE * sizeof(char));
-    snprintf(header, BUFFER_SIZE, "HTTP\1.1 200 OK\r\n""Content_type: %s\r\n""\r\n",mime_type);
+    snprintf(header, BUFFER_SIZE, "HTTP/1.1 200 OK\r\n""Content-type: %s\r\n""\r\n",mime_type);
 
     // If no such file, return response is 404 Not Found
     int file_fd = open(file_name, O_RDONLY);
     if (file_fd == -1) {
-        snprintf(response, BUFFER_SIZE, "HTTP\1.1 404 Not Found\r\n""Content-Type: text/plain\r\n""\r\n""404 Not Found");
+        snprintf(response, BUFFER_SIZE, "HTTP/1.1 404 Not Found\r\n""Content-Type: text/plain\r\n""\r\n""404 Not Found");
         *response_len = strlen(response);
         return;
     }
@@ -190,23 +190,24 @@ void *handle_client(void *arg) {
 }
 
 void *thread_function(void *arg) {
-    while (true) {
-        int *pclient_fd;
+    while (1) {
+        int *pclient_fd = NULL;
 
         pthread_mutex_lock(&mutex);
-        if((pclient_fd = dequeue()) == NULL) {
+        while((pclient_fd = dequeue()) == NULL) {
             pthread_cond_wait(&condition_var, &mutex);
-            pclient_fd = dequeue();
         }
         pthread_mutex_unlock(&mutex);
         
         if(pclient_fd != NULL) {
-           handle_client(*pclient_fd);
+           handle_client(pclient_fd);
         }
     }
+    return NULL;
 }
 
 int main(int argc, char *argv[]) {
+    // printf("Checkpoint");
     //Initialize the WSA variables
     WSADATA ws;
     if(WSAStartup(MAKEWORD(2,2), &ws) < 0) {
@@ -225,6 +226,7 @@ int main(int argc, char *argv[]) {
     for(int i = 0; i < THREAD_POOL_SIZE; i++) {
         pthread_create(&thread_pool[i], NULL, thread_function, NULL);
     }
+
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;

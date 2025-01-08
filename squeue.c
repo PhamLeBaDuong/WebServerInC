@@ -6,6 +6,10 @@ node_t *tail = NULL;
 
 void enqueue(int *client_socket) {
     node_t *newnode = malloc(sizeof(node_t));
+    if (newnode == NULL) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
     newnode->client_socket = client_socket;
     newnode->next = NULL;
     if(tail == NULL) {
@@ -26,7 +30,7 @@ int *dequeue() {
         node_t *temp = head;
         head = head->next;
         if (head == NULL) {
-            tail == NULL;
+            tail = NULL;
         }
         free(temp);
         return result;
