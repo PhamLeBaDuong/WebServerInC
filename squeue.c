@@ -1,5 +1,6 @@
 #include "squeue.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 node_t *head = NULL;
 node_t *tail = NULL;

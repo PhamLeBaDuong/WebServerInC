@@ -1,6 +1,6 @@
-#include <winsock2.h>   
-// #include <netinet/in.h>
-// #include <arpa/inet.h>
+// #include <winsock2.h>   
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -10,11 +10,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <sys/socket.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <ws2tcpip.h>
+// #include <ws2tcpip.h>
 #include "squeue.h"
 
 #define PORT 9909
@@ -51,7 +51,7 @@ const char *get_mime_type(const char *file_ext) {
 bool case_insensitive_compare(const char *str1, const char *str2) {
     while (*str1 && *str2) {
         if(tolower((unsigned char)*str1) != tolower((unsigned char)*str2)) {
-            return FALSE;
+            return false;
         }
         str1++;
         str2++;
@@ -102,11 +102,6 @@ char *url_decode(const char *src) {
 
 void build_http_response(const char *file_name, const char *file_ext, char *response, size_t *response_len) {
 
-    //Build Header
-    const char *mime_type = get_mime_type(file_ext);
-    char *header = (char *)malloc(BUFFER_SIZE * sizeof(char));
-    snprintf(header, BUFFER_SIZE, "HTTP/1.1 200 OK\r\n""Content-type: %s\r\n""\r\n",mime_type);
-
     // If no such file, return response is 404 Not Found
     int file_fd = open(file_name, O_RDONLY);
     if (file_fd == -1) {
@@ -114,6 +109,12 @@ void build_http_response(const char *file_name, const char *file_ext, char *resp
         *response_len = strlen(response);
         return;
     }
+
+    //Build Header
+    const char *mime_type = get_mime_type(file_ext);
+    char *header = (char *)malloc(BUFFER_SIZE * sizeof(char));
+    snprintf(header, BUFFER_SIZE, "HTTP/1.1 200 OK\r\n""Content-type: %s\r\n""\r\n",mime_type);
+
 
     // Get file size
     struct stat file_stat;
@@ -207,13 +208,12 @@ void *thread_function(void *arg) {
 }
 
 int main(int argc, char *argv[]) {
-    // printf("Checkpoint");
-    //Initialize the WSA variables
-    WSADATA ws;
-    if(WSAStartup(MAKEWORD(2,2), &ws) < 0) {
-        perror("WSAStartup failed");
-        exit(EXIT_FAILURE);
-    }
+    //Initialize the WSA variables. Removed comment for Docker use
+    // WSADATA ws;
+    // if(WSAStartup(MAKEWORD(2,2), &ws) < 0) {
+    //     perror("WSAStartup failed");
+    //     exit(EXIT_FAILURE);
+    // }
     
     int server_fd;
     struct sockaddr_in server_addr;
